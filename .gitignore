@@ -1,9 +1,19 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
 
+# Datasets
 data/raw/
-data/processed
-
+data/processed/
 data/CRACK500/
+data/real_world/
+
+# Training crops / temporary data
+traincrop/
+
+# Generated outputs
+outputs/
+
+# Temporary/test files
 test_dataset_pairs.py
