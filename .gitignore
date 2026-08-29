@@ -1,19 +1,24 @@
-# Python
+# Python virtual environment
 .venv/
+venv/
+
+# Python cache files
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Datasets
-data/raw/
-data/processed/
-data/CRACK500/
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Old files
+.gitignore_old
+app_old.py
+
+# Runtime generated files
 data/real_world/
-
-# Training crops / temporary data
-traincrop/
-
-# Generated outputs
-outputs/
-
-# Temporary/test files
-test_dataset_pairs.py
+outputs/real_world/

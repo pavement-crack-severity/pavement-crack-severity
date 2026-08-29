@@ -1,588 +1,770 @@
 import streamlit as st
-from pathlib import Path
+import os
+import sys
+import subprocess
 import pandas as pd
-import networkx as nx
-
-from geometric_features import (
-    load_crack_mask,
-    calculate_width_features,
-    calculate_crack_coverage,
-    calculate_crack_area,
-    calculate_crack_orientation
-)
-
-from skeletonization import skeletonize_crack
-
-from feature_extraction import (
-    get_clustered_endpoints,
-    get_clustered_branch_points,
-    build_skeleton_graph,
-    calculate_skeleton_length,
-    calculate_branch_density,
-    calculate_endpoint_density
-)
 
 
-# ==================================================
+# ============================================================
 # PAGE CONFIGURATION
-# ==================================================
+# ============================================================
 
 st.set_page_config(
-    page_title="Pavement Crack Severity Analyzer",
+    page_title="Pavement Crack Severity Assessment",
     page_icon="🛣️",
     layout="wide"
 )
 
 
-# ==================================================
-# SIDEBAR
-# ==================================================
+# ============================================================
+# CUSTOM CSS
+# ============================================================
 
-with st.sidebar:
+st.markdown("""
+<style>
 
-    st.header("About the Project")
+/* ============================================================
+   PAGE
+   ============================================================ */
 
-    st.write(
-        "Pavement Crack Severity Analysis "
-        "using the CRACK500 dataset."
-    )
-
-    st.divider()
-
-    st.subheader("Current Version")
-
-    st.write(
-        "Ground-truth based analysis"
-    )
-
-    st.divider()
-
-    st.subheader("Dataset")
-
-    st.write(
-        "CRACK500"
-    )
-
-    st.write(
-        "1,896 paired images and masks"
-    )
-
-    st.divider()
-
-    st.subheader("Important")
-
-    st.warning(
-        "This dashboard currently supports "
-        "CRACK500 dataset images only. "
-        "Ground-truth masks are used for "
-        "feature extraction and CSI analysis."
-    )
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    max-width: 1250px;
+}
 
 
-# ==================================================
-# DATASET PATHS
-# ==================================================
+/* ============================================================
+   HEADER
+   ============================================================ */
 
-DATASET_DIR = (
-    Path(__file__).resolve().parent
-    / "data"
-    / "CRACK500"
-    / "traincrop"
-)
+.main-title {
+    font-size: 40px;
+    font-weight: 750;
+    color: #1e293b;
+    margin-bottom: 5px;
+}
 
-CSI_PATH = (
-    Path(__file__).resolve().parent
-    / "outputs"
-    / "stage3"
-    / "features"
-    / "final_csi"
-    / "crack500_csi_results.csv"
-)
+.subtitle {
+    font-size: 17px;
+    color: #64748b;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
 
 
-# ==================================================
-# MAIN HEADER
-# ==================================================
+/* ============================================================
+   SECTION TITLES
+   ============================================================ */
 
-st.title(
-    "🛣️ Pavement Crack Severity Analyzer"
+.section-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 28px;
+    margin-bottom: 15px;
+}
+
+
+/* ============================================================
+   RESULT / METRIC CARDS
+   ============================================================ */
+
+[data-testid="stMetric"] {
+    background: #ffffff;
+    border: 1px solid #dfe5ec;
+    border-radius: 14px;
+    padding: 20px 22px;
+    min-height: 105px;
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.06);
+}
+
+[data-testid="stMetric"]:hover {
+    box-shadow: 0 5px 16px rgba(15, 23, 42, 0.10);
+}
+
+[data-testid="stMetricLabel"] {
+    font-size: 15px !important;
+    color: #64748b !important;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 32px !important;
+    font-weight: 750 !important;
+    color: #1e293b !important;
+}
+
+
+/* CSI VALUE */
+
+.csi-card [data-testid="stMetricValue"] {
+    color: #1d4ed8 !important;
+    font-size: 40px !important;
+}
+
+
+/* ============================================================
+   INFORMATION BOX
+   ============================================================ */
+
+[data-testid="stAlert"] {
+    border-radius: 12px;
+}
+
+
+/* ============================================================
+   IMAGES
+   ============================================================ */
+
+[data-testid="stImage"] img {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+
+/* ============================================================
+   BUTTON
+   ============================================================ */
+
+.stButton > button {
+    border-radius: 9px;
+    font-weight: 650;
+}
+
+
+/* ============================================================
+   FILE UPLOADER
+   ============================================================ */
+
+[data-testid="stFileUploader"] {
+    border-radius: 10px;
+}
+
+
+/* ============================================================
+   EXPANDER
+   ============================================================ */
+
+[data-testid="stExpander"] {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.footer {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    padding-top: 8px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# ============================================================
+# PROJECT HEADER
+# ============================================================
+
+st.markdown(
+    '<div class="main-title">🛣️ Pavement Crack Severity Assessment System</div>',
+    unsafe_allow_html=True
 )
 
 st.markdown(
     """
-    ### CRACK500 Ground-Truth Based Analysis
-
-    Analyze pavement crack characteristics using the
-    corresponding ground-truth mask and the validated
-    Crack Severity Index (CSI).
-    """
+    <div class="subtitle">
+    Automated pavement surface assessment using Random Forest-based
+    crack detection, geometric feature extraction, skeletonization,
+    graph analysis, and a composite Crack Severity Index (CSI).
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 st.divider()
 
 
-# ==================================================
-# DATASET CHECK
-# ==================================================
+# ============================================================
+# UPLOAD SECTION
+# ============================================================
 
-if DATASET_DIR.exists():
-
-    st.success(
-        "CRACK500 dataset found successfully."
-    )
-
-    jpg_count = len(
-        list(DATASET_DIR.glob("*.jpg"))
-    )
-
-    png_count = len(
-        list(DATASET_DIR.glob("*.png"))
-    )
-
-    st.write(
-        f"JPG images found: **{jpg_count}**"
-    )
-
-    st.write(
-        f"PNG masks found: **{png_count}**"
-    )
-
-else:
-
-    st.error(
-        "CRACK500 dataset folder was not found."
-    )
-
-
-# ==================================================
-# 1. INPUT IMAGE
-# ==================================================
-
-st.header(
-    "🔹 1. Input Image"
+st.markdown(
+    '<div class="section-title">📷 Pavement Image Inspection</div>',
+    unsafe_allow_html=True
 )
 
 st.write(
-    "Upload an image from the CRACK500 dataset."
+    "Upload a pavement surface image for automated crack detection "
+    "and severity assessment."
 )
 
 uploaded_file = st.file_uploader(
-    "Choose a CRACK500 JPG image",
-    type=["jpg", "jpeg"]
+    "Select pavement image",
+    type=["jpg", "jpeg", "png"]
 )
 
 
-# ==================================================
-# PROCESS UPLOADED IMAGE
-# ==================================================
+# ============================================================
+# ANALYSIS
+# ============================================================
 
 if uploaded_file is not None:
 
-    st.write(
-        f"Uploaded image: **{uploaded_file.name}**"
+    # ========================================================
+    # ORIGINAL IMAGE
+    # ONLY THIS IMAGE IS REDUCED
+    # ========================================================
+
+    st.image(
+        uploaded_file,
+        caption="Input Pavement Image",
+        width=450
     )
 
-    # --------------------------------------------------
-    # Find matching image in CRACK500
-    # --------------------------------------------------
-
-    matching_images = list(
-        DATASET_DIR.rglob(
-            uploaded_file.name
-        )
+    st.success(
+        "Pavement image loaded successfully."
     )
 
-    if matching_images:
+    analyze_button = st.button(
+        "🔍 Run Pavement Assessment",
+        type="primary",
+        use_container_width=False
+    )
 
-        image_path = matching_images[0]
 
-        # Corresponding ground-truth mask
-        mask_path = image_path.with_suffix(
-            ".png"
+    # ========================================================
+    # RUN ANALYSIS
+    # ========================================================
+
+    if analyze_button:
+
+        # ----------------------------------------------------
+        # DIRECTORIES
+        # ----------------------------------------------------
+
+        input_dir = os.path.join(
+            "data",
+            "real_world"
         )
 
-        st.success(
-            "Matching CRACK500 image found."
+        output_dir = os.path.join(
+            "outputs",
+            "real_world"
         )
 
-        # ==================================================
-        # 2. INPUT IMAGE + GROUND-TRUTH MASK
-        # ==================================================
+        os.makedirs(
+            input_dir,
+            exist_ok=True
+        )
 
-        if mask_path.exists():
+        os.makedirs(
+            output_dir,
+            exist_ok=True
+        )
 
-            st.header(
-                "🔹 2. Input Image & Ground-Truth Mask"
+
+        # ----------------------------------------------------
+        # SAVE UPLOADED IMAGE
+        # ----------------------------------------------------
+
+        image_name = uploaded_file.name
+
+        input_path = os.path.join(
+            input_dir,
+            image_name
+        )
+
+        with open(
+            input_path,
+            "wb"
+        ) as file:
+
+            file.write(
+                uploaded_file.getbuffer()
             )
 
-            st.success(
-                "Ground-truth mask found."
+
+        base_name = os.path.splitext(
+            image_name
+        )[0]
+
+
+        # ====================================================
+        # PAVEMENT ANALYSIS
+        # ====================================================
+
+        st.markdown(
+            '<div class="section-title">⚙️ Pavement Analysis</div>',
+            unsafe_allow_html=True
+        )
+
+        progress = st.status(
+            "Processing pavement surface...",
+            expanded=True
+        )
+
+
+        try:
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "predict_real_image.py",
+                    input_path
+                ],
+                capture_output=True,
+                text=True
             )
 
-            col1, col2 = st.columns(2)
 
-            with col1:
+            # ------------------------------------------------
+            # CHECK PIPELINE ERROR
+            # ------------------------------------------------
 
-                st.subheader(
-                    "2A. Input Image"
+            if result.returncode != 0:
+
+                progress.update(
+                    label="Analysis failed",
+                    state="error"
                 )
+
+                st.error(
+                    "The pavement analysis could not be completed."
+                )
+
+                with st.expander(
+                    "Technical Error Details"
+                ):
+
+                    st.code(
+                        result.stderr
+                    )
+
+                st.stop()
+
+
+            progress.update(
+                label="Pavement assessment completed",
+                state="complete"
+            )
+
+
+        except Exception as error:
+
+            progress.update(
+                label="Analysis failed",
+                state="error"
+            )
+
+            st.error(
+                f"Unable to run the analysis: {error}"
+            )
+
+            st.stop()
+
+
+        # ====================================================
+        # RESULT FILE PATHS
+        # ====================================================
+
+        csv_path = os.path.join(
+            output_dir,
+            f"{base_name}_result.csv"
+        )
+
+        probability_path = os.path.join(
+            output_dir,
+            f"{base_name}_probability.png"
+        )
+
+        mask_path = os.path.join(
+            output_dir,
+            f"{base_name}_mask.png"
+        )
+
+        skeleton_path = os.path.join(
+            output_dir,
+            f"{base_name}_skeleton.png"
+        )
+
+
+        # ====================================================
+        # CHECK CSV
+        # ====================================================
+
+        if not os.path.exists(csv_path):
+
+            st.error(
+                "Analysis completed, but the assessment result file "
+                "was not found."
+            )
+
+            st.stop()
+
+
+        # ====================================================
+        # READ RESULT CSV
+        # ====================================================
+
+        df = pd.read_csv(
+            csv_path
+        )
+
+        row = df.iloc[0]
+
+
+        coverage = float(
+            row["crack_coverage_percent"]
+        )
+
+        average_width = float(
+            row["average_width_pixels"]
+        )
+
+        maximum_width = float(
+            row["maximum_width_pixels"]
+        )
+
+        skeleton_length = float(
+            row["skeleton_length_pixels"]
+        )
+
+        branch_points = int(
+            row["branch_point_count"]
+        )
+
+        connected_components = int(
+            row["connected_components"]
+        )
+
+        crack_area = int(
+            row["crack_area_pixels"]
+        )
+
+        csi = float(
+            row["CSI"]
+        )
+
+        severity = str(
+            row["severity"]
+        )
+
+
+        # ====================================================
+        # PAVEMENT CONDITION ASSESSMENT
+        # ====================================================
+
+        st.markdown(
+            '<div class="section-title">📊 Pavement Condition Assessment</div>',
+            unsafe_allow_html=True
+        )
+
+
+        # ----------------------------------------------------
+        # CSI + SEVERITY
+        # USING STREAMLIT METRICS
+        # SO NO HTML CODE WILL APPEAR
+        # ----------------------------------------------------
+
+        col1, col2 = st.columns(
+            2,
+            gap="large"
+        )
+
+
+        with col1:
+
+            st.markdown(
+                '<div class="csi-card">',
+                unsafe_allow_html=True
+            )
+
+            st.metric(
+                "Crack Severity Index",
+                f"{csi:.2f} / 100"
+            )
+
+            st.markdown(
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+
+        with col2:
+
+            st.metric(
+                "Visual Severity Classification",
+                severity
+            )
+
+
+        # ====================================================
+        # INTERPRETATION
+        # ====================================================
+
+        st.info(
+            "The CSI represents the severity of visible crack "
+            "characteristics detected from the pavement image. "
+            "It is an image-based assessment indicator and should "
+            "not be interpreted as a direct structural safety rating "
+            "of the pavement."
+        )
+
+
+        # ====================================================
+        # DETECTED CRACK CHARACTERISTICS
+        # ====================================================
+
+        st.markdown(
+            '<div class="section-title">📐 Detected Crack Characteristics</div>',
+            unsafe_allow_html=True
+        )
+
+
+        # ----------------------------------------------------
+        # FIRST ROW
+        # ----------------------------------------------------
+
+        col1, col2, col3 = st.columns(3)
+
+
+        with col1:
+
+            st.metric(
+                "Crack Coverage",
+                f"{coverage:.2f}%"
+            )
+
+
+        with col2:
+
+            st.metric(
+                "Average Crack Width",
+                f"{average_width:.2f} px"
+            )
+
+
+        with col3:
+
+            st.metric(
+                "Maximum Crack Width",
+                f"{maximum_width:.2f} px"
+            )
+
+
+        # ----------------------------------------------------
+        # SECOND ROW
+        # ----------------------------------------------------
+
+        col1, col2, col3 = st.columns(3)
+
+
+        with col1:
+
+            st.metric(
+                "Skeleton Length",
+                f"{skeleton_length:.2f} px"
+            )
+
+
+        with col2:
+
+            st.metric(
+                "Branch Points",
+                branch_points
+            )
+
+
+        with col3:
+
+            st.metric(
+                "Connected Crack Regions",
+                connected_components
+            )
+
+
+        # ----------------------------------------------------
+        # CRACK AREA
+        # ----------------------------------------------------
+
+        st.metric(
+            "Detected Crack Area",
+            f"{crack_area:,} pixels"
+        )
+
+
+        # ====================================================
+        # VISUAL ANALYSIS
+        # ====================================================
+
+        st.markdown(
+            '<div class="section-title">🧬 Crack Detection & Structural Representation</div>',
+            unsafe_allow_html=True
+        )
+
+
+        # ----------------------------------------------------
+        # PROBABILITY + MASK
+        # KEEP SAME SIZE
+        # ----------------------------------------------------
+
+        col1, col2 = st.columns(
+            2,
+            gap="large"
+        )
+
+
+        with col1:
+
+            st.subheader(
+                "Random Forest Probability Map"
+            )
+
+            if os.path.exists(
+                probability_path
+            ):
 
                 st.image(
-                    str(image_path),
+                    probability_path,
                     use_container_width=True
                 )
-
-            with col2:
-
-                st.subheader(
-                    "2B. Ground-Truth Mask"
-                )
-
-                st.image(
-                    str(mask_path),
-                    use_container_width=True
-                )
-
-
-            # ==================================================
-            # LOAD GROUND-TRUTH MASK
-            # ==================================================
-
-            mask = load_crack_mask(
-                str(mask_path)
-            )
-
-
-            # ==================================================
-            # GEOMETRIC FEATURES
-            # ==================================================
-
-            width_features = (
-                calculate_width_features(
-                    mask
-                )
-            )
-
-            coverage = (
-                calculate_crack_coverage(
-                    mask
-                )
-            )
-
-            area = (
-                calculate_crack_area(
-                    mask
-                )
-            )
-
-            orientation = (
-                calculate_crack_orientation(
-                    mask
-                )
-            )
-
-
-            # ==================================================
-            # 3. CRACK FEATURES
-            # ==================================================
-
-            st.header(
-                "🔹 3. Crack Features"
-            )
-
-            st.write(
-                "Geometric characteristics extracted "
-                "from the ground-truth crack mask."
-            )
-
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-
-                st.metric(
-                    "Average Width",
-                    f"{width_features['average_width_pixels']:.2f} px"
-                )
-
-                st.metric(
-                    "Crack Coverage",
-                    f"{coverage:.2f}%"
-                )
-
-            with col2:
-
-                st.metric(
-                    "Maximum Width",
-                    f"{width_features['maximum_width_pixels']:.2f} px"
-                )
-
-                st.metric(
-                    "Crack Area",
-                    f"{area:,} pixels"
-                )
-
-            with col3:
-
-                st.metric(
-                    "Dominant Orientation",
-                    f"{orientation:.2f}°"
-                )
-
-
-            # ==================================================
-            # SKELETONIZATION
-            # ==================================================
-
-            skeleton_image = (
-                skeletonize_crack(
-                    mask
-                )
-            )
-
-            skeleton = (
-                skeleton_image > 0
-            )
-
-
-            # ==================================================
-            # ENDPOINTS AND BRANCH POINTS
-            # ==================================================
-
-            endpoints = (
-                get_clustered_endpoints(
-                    skeleton,
-                    radius=3
-                )
-            )
-
-            branch_points = (
-                get_clustered_branch_points(
-                    skeleton,
-                    radius=3
-                )
-            )
-
-
-            # ==================================================
-            # BUILD SKELETON GRAPH
-            # ==================================================
-
-            graph = (
-                build_skeleton_graph(
-                    skeleton
-                )
-            )
-
-
-            # ==================================================
-            # GRAPH FEATURES
-            # ==================================================
-
-            connected_components = (
-                nx.number_connected_components(
-                    graph
-                )
-            )
-
-            skeleton_length = (
-                calculate_skeleton_length(
-                    graph
-                )
-            )
-
-            branch_density = (
-                calculate_branch_density(
-                    len(branch_points),
-                    skeleton_length
-                )
-            )
-
-            endpoint_density = (
-                calculate_endpoint_density(
-                    len(endpoints),
-                    skeleton_length
-                )
-            )
-
-
-            # ==================================================
-            # 4. SKELETON & GRAPH FEATURES
-            # ==================================================
-
-            st.header(
-                "🔹 4. Skeleton & Graph Features"
-            )
-
-            st.write(
-                "Structural characteristics extracted "
-                "from the skeletonized ground-truth mask."
-            )
-
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-
-                st.metric(
-                    "Skeleton Length",
-                    f"{skeleton_length:.2f} px"
-                )
-
-                st.metric(
-                    "Endpoint Count",
-                    len(endpoints)
-                )
-
-            with col2:
-
-                st.metric(
-                    "Branch Point Count",
-                    len(branch_points)
-                )
-
-                st.metric(
-                    "Connected Components",
-                    connected_components
-                )
-
-            with col3:
-
-                st.metric(
-                    "Branch Density",
-                    f"{branch_density:.6f}"
-                )
-
-                st.metric(
-                    "Endpoint Density",
-                    f"{endpoint_density:.6f}"
-                )
-
-
-            # ==================================================
-            # 5. CRACK SEVERITY INDEX
-            # ==================================================
-
-            st.header(
-                "🔹 5. Crack Severity Index"
-            )
-
-            st.write(
-                "Validated CSI result obtained from the "
-                "CRACK500 research analysis."
-            )
-
-
-            # --------------------------------------------------
-            # Load validated CSI results
-            # --------------------------------------------------
-
-            if CSI_PATH.exists():
-
-                csi_df = pd.read_csv(
-                    CSI_PATH
-                )
-
-                image_name = (
-                    image_path.stem
-                )
-
-                csi_row = csi_df[
-                    csi_df["image"] == image_name
-                ]
-
-
-                # --------------------------------------------------
-                # Display CSI
-                # --------------------------------------------------
-
-                if not csi_row.empty:
-
-                    csi_value = float(
-                        csi_row.iloc[0]["CSI"]
-                    )
-
-                    severity = str(
-                        csi_row.iloc[0]["severity"]
-                    )
-
-                    st.markdown("---")
-
-                    st.subheader(
-                        "Final Crack Severity Assessment"
-                    )
-
-                    col1, col2 = st.columns(2)
-
-                    with col1:
-
-                        st.metric(
-                            "Crack Severity Index (CSI)",
-                            f"{csi_value:.2f} / 100"
-                        )
-
-                    with col2:
-
-                        st.metric(
-                            "Severity Classification",
-                            severity
-                        )
-
-
-                    # ------------------------------------------
-                    # Severity interpretation
-                    # ------------------------------------------
-
-                    if severity == "Low":
-
-                        st.info(
-                            "Low Severity — the crack characteristics "
-                            "correspond to the low-severity range."
-                        )
-
-                    elif severity == "Moderate":
-
-                        st.warning(
-                            "Moderate Severity — the crack characteristics "
-                            "correspond to the moderate-severity range."
-                        )
-
-                    elif severity == "High":
-
-                        st.error(
-                            "High Severity — the crack characteristics "
-                            "correspond to the high-severity range."
-                        )
-
-                    st.caption(
-                        "CSI thresholds: Low < 27.73 | "
-                        "Moderate: 27.73–46.83 | "
-                        "High > 46.83"
-                    )
-
-                else:
-
-                    st.warning(
-                        "Validated CSI result not found "
-                        "for this image."
-                    )
 
             else:
 
-                st.error(
-                    "CSI results file was not found."
+                st.warning(
+                    "Probability map unavailable."
                 )
 
 
+        with col2:
+
+            st.subheader(
+                "Detected Crack Mask"
+            )
+
+            if os.path.exists(
+                mask_path
+            ):
+
+                st.image(
+                    mask_path,
+                    use_container_width=True
+                )
+
+            else:
+
+                st.warning(
+                    "Crack mask unavailable."
+                )
+
+
+        # ====================================================
+        # SKELETON
+        # KEEP SAME SIZE
+        # ====================================================
+
+        st.subheader(
+            "Skeleton / Crack Network Representation"
+        )
+
+
+        if os.path.exists(
+            skeleton_path
+        ):
+
+            st.image(
+                skeleton_path,
+                use_container_width=True
+            )
+
         else:
 
-            st.error(
-                "Matching image was found, "
-                "but its ground-truth mask is missing."
+            st.warning(
+                "Skeleton representation unavailable."
             )
 
 
-    else:
+        # ====================================================
+        # ASSESSMENT REPORT
+        # ====================================================
 
-        st.error(
-            "This image was not found in the "
-            "CRACK500 dataset."
+        st.markdown(
+            '<div class="section-title">📥 Assessment Report</div>',
+            unsafe_allow_html=True
+        )
+
+
+        csv_data = df.to_csv(
+            index=False
+        ).encode(
+            "utf-8"
+        )
+
+
+        st.download_button(
+            label="⬇️ Download Detailed Assessment Report",
+            data=csv_data,
+            file_name=f"{base_name}_pavement_assessment.csv",
+            mime="text/csv"
+        )
+
+
+        # ====================================================
+        # METHODOLOGY
+        # ====================================================
+
+        st.markdown(
+            '<div class="section-title">🔬 Assessment Methodology</div>',
+            unsafe_allow_html=True
+        )
+
+
+        st.markdown(
+            """
+            **1. Image Processing**  
+            The uploaded pavement image is converted and processed
+            to extract classical image features.
+
+            **2. Random Forest Crack Detection**  
+            A trained Random Forest model estimates the probability
+            of each image pixel belonging to a pavement crack.
+
+            **3. Crack Segmentation**  
+            A probability threshold is applied to obtain the detected
+            crack mask followed by morphological cleaning.
+
+            **4. Geometric Analysis**  
+            Crack coverage, crack area, average width and maximum width
+            are calculated from the detected crack regions.
+
+            **5. Skeleton and Graph Analysis**  
+            The crack mask is skeletonized to analyze crack length,
+            branch points and connected crack regions.
+
+            **6. Crack Severity Index**  
+            The extracted features are normalized and combined using
+            weighted scoring to obtain the final CSI on a 0–100 scale.
+            """
+        )
+
+
+        # ====================================================
+        # FOOTER
+        # ====================================================
+
+        st.divider()
+
+        st.markdown(
+            """
+            <div class="footer">
+            Pavement Crack Severity Assessment System |
+            Random Forest + Image Processing + Skeleton & Graph Analysis
+            </div>
+            """,
+            unsafe_allow_html=True
         )
