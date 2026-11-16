@@ -198,6 +198,7 @@ if isinstance(
         "threshold",
         0.80
     )
+    
 
 else:
 
@@ -334,7 +335,7 @@ cv2.imwrite(
 # ============================================================
 
 mask = (
-    probability_map >= threshold
+    probability_map >= 0.50
 )
 
 
@@ -354,14 +355,14 @@ kernel = cv2.getStructuringElement(
     (3, 3)
 )
 
-
+""""
 mask_u8 = cv2.morphologyEx(
     mask_u8,
     cv2.MORPH_OPEN,
     kernel,
     iterations=1
 )
-
+"""
 
 mask_u8 = cv2.morphologyEx(
     mask_u8,

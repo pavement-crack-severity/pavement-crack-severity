@@ -150,7 +150,7 @@ def extract_ml_features(gray_image):
         beta=0.5,
         black_ridges=True
     )
-
+    frangi_response = np.nan_to_num(frangi_response)
     frangi_feature = normalize_feature(
         frangi_response
     )
@@ -236,7 +236,7 @@ def extract_ml_features(gray_image):
     # ========================================================
     # 9. Local contrast
     # ========================================================
-
+    """"
     local_contrast = (
         np.abs(
             gray_float - local_mean
@@ -246,8 +246,33 @@ def extract_ml_features(gray_image):
     local_contrast_feature = normalize_feature(
         local_contrast
     )
+    """
+    
+    
+    morphology_kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE,
+        (9, 9)
+    )
 
+    local_min = cv2.erode(
+        gray,
+        morphology_kernel
+    )
 
+    local_max = cv2.dilate(
+        gray,
+        morphology_kernel
+    )
+
+    local_contrast_raw = (
+        local_max.astype(np.float32)
+        - local_min.astype(np.float32)
+    )
+
+    local_contrast_feature = normalize_feature(
+        local_contrast_raw
+    )
+    
     # ========================================================
     # COMBINE FEATURES
     # ========================================================
