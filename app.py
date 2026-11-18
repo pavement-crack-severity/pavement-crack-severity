@@ -504,6 +504,19 @@ if uploaded_file is not None:
 
 
         # ====================================================
+        # INTERPRETATION
+        # ====================================================
+
+        st.info(
+            "The CSI represents the severity of visible crack "
+            "characteristics detected from the pavement image. "
+            "It is an image-based assessment indicator and should "
+            "not be interpreted as a direct structural safety rating "
+            "of the pavement."
+        )
+
+
+        # ====================================================
         # DETECTED CRACK CHARACTERISTICS
         # ====================================================
 
