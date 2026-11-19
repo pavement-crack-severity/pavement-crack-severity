@@ -2,9 +2,9 @@
 
 An image-based pavement crack detection and severity assessment system using **Random Forest, Image Processing, Skeletonization, and Graph-Based Analysis**.
 
-\<p align="center">   \<a href="https://pavement-crack-severity-yskqe4la3tiwpkek7jkzfq.streamlit.app/">     \<strong>🚀 Live Application\</strong>   \</a> \</p>
+Streamlit Link - https://pavement-crack-severity-yskqe4la3tiwpkek7jkzfq.streamlit.app/
 
-## 📌 About the Project
+##  About the Project
 
 Pavement cracks are early indicators of road deterioration. Identifying and assessing them at an early stage can help support timely road maintenance.
 
@@ -12,7 +12,7 @@ This project presents an automated system that analyzes pavement surface images,
 
 The application is built using Python and Streamlit, allowing users to upload pavement images and view the crack detection and severity assessment results.
 
-## ✨ Key Features
+##  Key Features
 
 - **Image Feature Extraction:** Extracts nine image features, including grayscale intensity, CLAHE, Gabor, Black-hat, Frangi, gradient magnitude, local mean, local standard deviation, and local contrast.
 - **Crack Detection:** Uses a trained Random Forest classifier to identify crack pixels and generate a probability map.
@@ -23,7 +23,7 @@ The application is built using Python and Streamlit, allowing users to upload pa
 - **Severity Assessment:** Calculates a weighted Crack Severity Index (CSI) ranging from 0 to 100.
 - **Interactive Interface:** Provides a Streamlit application for uploading images and viewing assessment results.
 
-## ⚙️ Working Methodology
+##  Working Methodology
 
 The system follows these main steps:
 
@@ -38,7 +38,7 @@ The system follows these main steps:
 9. Normalize the extracted features and calculate the Crack Severity Index.
 10. Display the final measurements and severity category through the Streamlit application.
 
-## 📊 Crack Severity Classification
+##  Crack Severity Classification
 
 The system classifies pavement conditions into five severity levels based on the calculated CSI.
 
@@ -50,7 +50,7 @@ The system classifies pavement conditions into five severity levels based on the
 | 60 – Below 80 | Very High      |
 | 80 – 100      | Severe         |
 
-## 🧰 Technologies Used
+##  Technologies Used
 
 | Technology   | Purpose                                       |
 | ------------ | --------------------------------------------- |
@@ -91,12 +91,12 @@ pavement-crack-severity/
 └── README.md
 ```
 
-## 🚀 Run Locally
+##  Run Locally
 
 ### 1. Clone the repository
 
 ```bash
-git clone [YOUR_GITHUB_REPOSITORY_URL](https://github.com/pavement-crack-severity/pavement-crack-severity.git)
+git clone https://github.com/pavement-crack-severity/pavement-crack-severity.git
 ```
 
 ### 2. Navigate to the project directory
@@ -119,9 +119,9 @@ streamlit run app.py
 
 The application will open in your browser at the local Streamlit address.
 
-**Note:** Ensure that the trained model files and all supporting Python scripts are available in their respective directories before running the application.
+**Note:**Make sure that the trained model files and all supporting Python scripts are available in their respective directories before running the application.
 
-## 📈 Expected Output
+##  Expected Output
 
 The application provides:
 
@@ -133,7 +133,7 @@ The application provides:
 - Crack Severity Index (CSI)
 - Final pavement severity classification
 
-## 🔮 Future Improvements
+##  Future Improvements
 
 - Improve crack detection using advanced machine learning and deep learning techniques.
 - Convert pixel-based measurements into real-world units using camera calibration.
@@ -141,7 +141,7 @@ The application provides:
 - Integrate GPS-based location information for road damage mapping.
 - Develop a mobile application for pavement inspection in the field.
 
-## 👩‍💻 Project Information
+##  Project Information
 
 **Project Title:** Pavement Crack Severity Assessment Using Random Forest and Graph-Based Crack Analysis
 
@@ -153,4 +153,4 @@ The application provides:
 
 ---
 
-⭐ If you find this project interesting, feel free to explore the repository and try the live application.
+ If you find this project interesting, feel free to explore the repository and try the live application.
